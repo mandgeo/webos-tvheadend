@@ -1,0 +1,36 @@
+import Config from '../config/Config';
+
+export default class WebOSService {
+    private lunaServiceAdapter = Config.lunaServiceAdapter;
+
+    /**
+     * trigger toast message
+     *
+     * @param message
+     */
+    showToastMessage(message: string) {
+        this.lunaServiceAdapter.toast(message);
+    }
+
+    async isAvailable() {
+        return this.lunaServiceAdapter.isAvailable();
+    }
+
+    /**
+     * retrieve local information from tv
+     */
+    async getLocaleInfo() {
+        const localeInfo = await this.lunaServiceAdapter.getLocaleInfo();
+        return localeInfo;
+    }
+
+    async getDeviceInfo() {
+        const deviceInfo = await this.lunaServiceAdapter.getDeviceInfo();
+        return deviceInfo;
+    }
+
+    async getNetworkInfo() {
+        const networkInfo = await this.lunaServiceAdapter.getNetworkInfo();
+        return networkInfo;
+    }
+}

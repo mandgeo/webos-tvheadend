@@ -1,13 +1,41 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#000000" />
-        <title>WebOS TVheadend Client</title>
-    </head>
-    <body>
-        <noscript>You need to enable JavaScript to run this app.</noscript>
-        <div id="root"></div>
-    </body>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <title>WebOS TVheadend Client</title>
+
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <script>
+        function getChromeMajorVersion() {
+
+            const ua = navigator.userAgent;
+            const match = ua.match(/Chrome\/(\d+)\./);
+            if (match && match[1]) {
+                return parseInt(match[1], 10);
+            }
+            return null;
+        }
+
+        window.onload = function () {
+
+            const version = getChromeMajorVersion();
+            console.log("Chrome version detected: " + version);
+            if (version === null) {
+                // defaults to newer version
+                console.log("Chrome version not detected, defaulting to WebOS 6+");
+                window.location.href = "./webos6/index.html"; // Pfad zur WebOS 6+ WebApp
+            }
+
+            if (version > 68) {
+                window.location.href = "./webos6/index.html"; // Pfad zur WebOS 6+ WebApp
+            } else {
+                window.location.href = "./webos4/index.html"; // Pfad zur WebOS 4/5 WebApp
+            }
+        };
+    </script>
+</body>
 </html>

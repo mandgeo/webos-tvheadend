@@ -3,53 +3,17 @@
     "version": "0.8.4",
     "private": true,
     "homepage": "./",
-    "dependencies": {
-        "@enact/moonstone": "^3.3.1",
-        "@procot/webostv": "^1.2.2",
-        "ilib": "^14.6.2",
-        "react": "^16.14.0",
-        "react-dom": "^16.14.0",
-        "react-scripts": "^4.0.1"
-    },
     "scripts": {
-        "start": "react-scripts start",
-        "build": "react-scripts build",
-        "test": "react-scripts test",
-        "eject": "react-scripts eject",
-        "webos:emu": "npm run build && ares-package build service && ares-install com.willinux.tvh.app_${npm_package_version}_all.ipk -d emulator && ares-launch com.willinux.tvh.app -d emulator",
+        "clean": "rm -rf dist && mkdir -p dist/webos4 && mkdir -p dist/webos6",
+        "build-4": "npm run build --prefix webos-4",
+        "build-6": "npm run pack-p --prefix webos-6",
+        "build": "npm run clean && cp public/* dist && npm run build-4 && npm run build-6 && cp -rf webos-4/build/* dist/webos4/ && cp -rf webos-6/dist/* dist/webos6",
+        "package": "ares-package dist service",
+        "webos:emu": "npm run build && npm run package && ares-install com.willinux.tvh.app_${npm_package_version}_all.ipk -d emulator && ares-launch com.willinux.tvh.app -d emulator",
         "webos:emu-rm": "ares-install -d emulator --remove com.willinux.tvh.app",
-        "webos:tv": "npm run build && ares-package build service && ares-install com.willinux.tvh.app_${npm_package_version}_all.ipk -d tv && ares-launch com.willinux.tvh.app -d tv",
+        "webos:tv": "npm run build && npm run package && ares-install com.willinux.tvh.app_${npm_package_version}_all.ipk -d tv && ares-launch com.willinux.tvh.app -d tv",
         "webos:tv-rm": "ares-install -d tv --remove com.willinux.tvh.app",
         "inspect:emu": "ares-inspect -d emulator com.willinux.tvh.app --open",
         "inspect:tv": "ares-inspect -d tv com.willinux.tvh.app --open"
-    },
-    "eslintConfig": {
-        "extends": [
-            "react-app"
-        ]
-    },
-    "browserslist": {
-        "production": [
-            ">0.2%",
-            "not dead",
-            "not op_mini all"
-        ],
-        "development": [
-            "last 1 chrome version",
-            "last 1 firefox version",
-            "last 1 safari version"
-        ]
-    },
-    "devDependencies": {
-        "@types/react": "^17.0.0",
-        "@types/react-dom": "^17.0.0",
-        "@typescript-eslint/eslint-plugin": "^4.14.0",
-        "@typescript-eslint/parser": "^4.14.0",
-        "eslint": "^7.18.0",
-        "eslint-config-prettier": "^7.2.0",
-        "eslint-config-react-app": "^6.0.0",
-        "eslint-plugin-prettier": "^3.3.1",
-        "eslint-plugin-react": "^7.22.0",
-        "prettier": "^2.2.1"
     }
 }

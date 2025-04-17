@@ -1,0 +1,13 @@
+{
+    "id": "com.willinux.tvh.app",
+    "version": "0.8.4",
+    "vendor": "WillinuX-Code",
+    "type": "web",
+    "main": "index.html",
+    "title": "TVheadend Client",
+    "splashBackground": "splash.png",
+    "icon": "icon.png",
+    "largeIcon": "largeIcon.png",
+    "iconColor": "#303030",
+    "disableBackHistoryAPI": true
+}
