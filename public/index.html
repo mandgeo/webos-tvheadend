@@ -13,6 +13,7 @@
         function getChromeMajorVersion() {
 
             const ua = navigator.userAgent;
+
             const match = ua.match(/Chrome\/(\d+)\./);
             if (match && match[1]) {
                 return parseInt(match[1], 10);
@@ -20,7 +21,7 @@
             return null;
         }
 
-        window.onload = function () {
+        window.addEventListener("load", function () {
 
             const version = getChromeMajorVersion();
             console.log("Chrome version detected: " + version);
@@ -35,7 +36,7 @@
             } else {
                 window.location.href = "./webos4/index.html"; // Pfad zur WebOS 4/5 WebApp
             }
-        };
+        });
     </script>
 </body>
 </html>
