@@ -3,7 +3,21 @@
     "description": "TVHeadend Service Proxy",
     "services": [
         {
-            "name": "com.willinux.tvh.app.proxy"
+            "name": "com.willinux.tvh.app.proxy",
+            "commands": [
+                {
+                    "name": "fileIO",
+                    "public": false
+                },
+                {
+                    "name": "proxy",
+                    "public": false
+                },
+                {
+                    "name": "ping",
+                    "public": false
+                }
+            ]
         }
     ]
 }
