@@ -435,6 +435,35 @@ const ChannelList = (props: {
         focus();
     };
 
+    const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+        // Calculează poziția canalului pe baza coordonatei Y a cursorului
+        // față de elementul canvas (nu față de pagină)
+        const canvasEl = canvas.current;
+        if (!canvasEl) return;
+
+        const rect = canvasEl.getBoundingClientRect();
+        const relativeY = event.clientY - rect.top;
+
+        // Determină ce canal e sub cursor (ținând cont de scroll)
+        const hoveredPosition = Math.floor((relativeY + scrollY.current) / mChannelLayoutHeight);
+
+        // Verifică că e în limitele listei
+        if (
+            hoveredPosition >= 0 &&
+            hoveredPosition < epgData.getChannelCount() &&
+            hoveredPosition !== channelPosition.current
+        ) {
+            setChannelPosition(hoveredPosition);
+            focus(); // asigură că div-ul primește keydown după hover
+        }
+    };
+
+    const handleMouseClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        // Click cu Magic Remote = selectează canalul hover-uit
+        setCurrentChannelPosition(channelPosition.current);
+        props.unmount();
+    };
+    
     const handleClick = () => {
         setCurrentChannelPosition(channelPosition.current);
         props.unmount();
@@ -543,7 +572,8 @@ const ChannelList = (props: {
             tabIndex={-1}
             onKeyDown={handleKeyPress}
             onWheel={handleScrollWheel}
-            onClick={handleClick}
+            onClick={handleMouseClick}
+            onMouseMove={handleMouseMove}
             className="channelList"
         >
             <canvas ref={canvas} width={getWidth()} height={getHeight()} style={{ display: 'block' }} />
