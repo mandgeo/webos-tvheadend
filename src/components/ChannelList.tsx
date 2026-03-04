@@ -431,30 +431,42 @@ const ChannelList = (props: {
     };
 
     const handleScrollWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-        event.deltaY < 0 ? scrollUp() : scrollDown();
+        const SCROLL_STEP = 10;
+        if (event.deltaY < 0) {
+            // rotița sus — mergi cu 10 canale în sus
+            const newPos = Math.max(0, channelPosition.current - SCROLL_STEP);
+            setChannelPosition(newPos);
+        } else {
+            // rotița jos — mergi cu 10 canale în jos
+            const newPos = Math.min(epgData.getChannelCount() - 1, channelPosition.current + SCROLL_STEP);
+            setChannelPosition(newPos);
+        }
         focus();
     };
 
     const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
-        // Calculează poziția canalului pe baza coordonatei Y a cursorului
-        // față de elementul canvas (nu față de pagină)
         const canvasEl = canvas.current;
         if (!canvasEl) return;
 
         const rect = canvasEl.getBoundingClientRect();
         const relativeY = event.clientY - rect.top;
 
-        // Determină ce canal e sub cursor (ținând cont de scroll)
+        // Calculează canalul de sub cursor folosind scroll-ul CURENT al listei
+        // dar NU modifică scrollY — lista rămâne pe loc
         const hoveredPosition = Math.floor((relativeY + scrollY.current) / mChannelLayoutHeight);
 
-        // Verifică că e în limitele listei
         if (
             hoveredPosition >= 0 &&
             hoveredPosition < epgData.getChannelCount() &&
             hoveredPosition !== channelPosition.current
         ) {
-            setChannelPosition(hoveredPosition);
-            focus(); // asigură că div-ul primește keydown după hover
+            // Actualizează doar highlight-ul, fără să scrolleze lista
+            channelPosition.current = hoveredPosition;
+            if (state === State.DETAILS) {
+                setDetailsData();
+            }
+            updateCanvas();
+            focus();
         }
     };
 
