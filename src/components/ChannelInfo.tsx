@@ -1,214 +1,566 @@
-const drawChannelInfo = (canvas: CanvasRenderingContext2D) => {
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import Rect from '../models/Rect';
+import CanvasUtils from '../utils/CanvasUtils';
+import AppContext from '../AppContext';
+import '../styles/app.css';
+import ChannelListDetails from './ChannelListDetails';
+import EPGEvent from '../models/EPGEvent';
+import EPGChannel from '../models/EPGChannel';
+import EPGUtils from '../utils/EPGUtils';
+
+const VERTICAL_SCROLL_TOP_PADDING_ITEM = 5;
+const IS_DEBUG = false;
+
+enum State {
+    NORMAL = 'normal',
+    DETAILS = 'details'
+}
+
+interface DetailsState {
+    focusedChannel?: EPGChannel;
+    focusedEvent?: EPGEvent;
+}
+
+const ChannelList = (props: {
+    toggleRecording: (event: EPGEvent, callback: () => unknown) => void;
+    unmount: () => void;
+}) => {
+    const { epgData, imageCache, currentChannelPosition, setCurrentChannelPosition, isAnimationsEnabled } = useContext(
+        AppContext
+    );
+    const canvas = useRef<HTMLCanvasElement>(null);
+    const listWrapper = useRef<HTMLDivElement>(null);
+    const scrollAnimationId = useRef(0);
+    const scrollY = useRef(0);
+    const channelPosition = useRef(currentChannelPosition);
+
+    const focusedEventOffset = useRef(0);
+    const nextEvents = useRef<EPGEvent[]>([]);
+    const nextSameEvents = useRef<EPGEvent[]>([]);
+
+    const mChannelLayoutTextSize = 32;
+    const mChannelLayoutEventTextSize = 26;
+    const mChannelLayoutNumberTextSize = 38;
+    const mChannelLayoutTextColor = '#cccccc';
+    const mChannelLayoutTitleTextColor = '#969696';
+    const mChannelLayoutMargin = 3;
+    const mChannelLayoutPadding = 7;
+    const mChannelLayoutHeight = 90;
+    const mChannelLayoutWidth = 900;
+    const mChannelLayoutBackgroundFocus = 'rgba(29,170,226,1)';
+
+    const [state, setState] = useState<State>(State.NORMAL);
+    const [detailsState, setDetailsState] = useState<DetailsState>();
+
+    const getTopFrom = (position: number) => {
+        const y = position * mChannelLayoutHeight; //+ this.mChannelLayoutMargin;
+        return y - scrollY.current;
+    };
+
+    const scrollToChannelPosition = (channelPosition: number, withAnimation: boolean) => {
+        // start scrolling after padding position top
+        if (channelPosition < VERTICAL_SCROLL_TOP_PADDING_ITEM) {
+            scrollY.current = 0;
+            updateCanvas();
+            return;
+        }
+
+        // stop scrolling before top padding position
+        const maxPosition = epgData.getChannelCount() - VERTICAL_SCROLL_TOP_PADDING_ITEM;
+        if (channelPosition >= maxPosition) {
+            // fix scroll to channel in case it is within bottom padding
+            if (scrollY.current === 0) {
+                scrollY.current = mChannelLayoutHeight * (maxPosition - VERTICAL_SCROLL_TOP_PADDING_ITEM);
+            }
+            updateCanvas();
+            return;
+        }
+
+        // scroll to channel position
+        const scrollTarget = mChannelLayoutHeight * (channelPosition - VERTICAL_SCROLL_TOP_PADDING_ITEM);
+        if (!withAnimation) {
+            scrollY.current = scrollTarget;
+            updateCanvas();
+            return;
+        }
+
+        const scrollDistance = scrollTarget - scrollY.current;
+        const scrollDelta = scrollDistance / (mChannelLayoutHeight / 5);
+        // stop existing animation if we have a new request
+        cancelAnimationFrame(scrollAnimationId.current);
+        scrollAnimationId.current = requestAnimationFrame(() => {
+            animateScroll(scrollDelta, scrollTarget);
+        });
+    };
+
+    const animateScroll = (scrollDelta: number, scrollTarget: number) => {
+        if (scrollDelta < 0 && scrollY.current <= scrollTarget) {
+            //this.scrollY = scrollTarget;
+            cancelAnimationFrame(scrollAnimationId.current);
+            return;
+        }
+        if (scrollDelta > 0 && scrollY.current >= scrollTarget) {
+            //this.scrollY = scrollTarget;
+            cancelAnimationFrame(scrollAnimationId.current);
+            return;
+        }
+        //console.log("scrolldelta=%d, scrolltarget=%d, scrollY=%d", scrollDelta, scrollTarget, this.scrollY);
+        scrollY.current = scrollY.current + scrollDelta;
+        scrollAnimationId.current = requestAnimationFrame(() => {
+            animateScroll(scrollDelta, scrollTarget);
+        });
+        updateCanvas();
+    };
+
+    const drawChannelListItems = (canvas: CanvasRenderingContext2D) => {
         // Background
-        let drawingRect = new Rect();
+        const drawingRect = new Rect();
         drawingRect.left = 0;
         drawingRect.top = 0;
-        drawingRect.right = getWidth();
-        drawingRect.bottom = getHeight();
+        drawingRect.right = drawingRect.left + mChannelLayoutWidth;
+        drawingRect.bottom = drawingRect.top + getHeight();
         canvas.globalAlpha = 1.0;
+        // put stroke color to transparent
+        //canvas.strokeStyle = "transparent";
         canvas.strokeStyle = 'gradient';
+        //mPaint.setColor(mChannelLayoutBackground);
+        // canvas.fillStyle = this.mChannelLayoutBackground;
+        // Create gradient
         const grd = canvas.createLinearGradient(
-            drawingRect.left,
-            drawingRect.left,
-            drawingRect.right,
-            drawingRect.left
+            drawingRect.bottom,
+            drawingRect.top,
+            drawingRect.bottom,
+            drawingRect.bottom
         );
-        grd.addColorStop(0, 'rgba(11, 39, 58, 0.9)');
-        grd.addColorStop(0.5, 'rgba(35, 64, 84, 0.9)');
-        grd.addColorStop(1, 'rgba(11, 39, 58, 0.9)');
+        // Important bit here is to use rgba()
+        grd.addColorStop(0, 'rgba(11, 39, 58, 0.7)');
+        grd.addColorStop(0.2, 'rgba(35, 64, 84, 0.9)');
+        grd.addColorStop(0.8, 'rgba(35, 64, 84, 0.9)');
+        grd.addColorStop(1, 'rgba(11, 39, 58, 0.7)');
+
+        // Fill with gradient
         canvas.fillStyle = grd;
-        canvas.fillRect(drawingRect.left, drawingRect.top, drawingRect.width, drawingRect.bottom);
+        canvas.fillRect(drawingRect.left, drawingRect.top, drawingRect.width, drawingRect.height);
 
-        drawingRect.left += mChannelLayoutMargin;
-        drawingRect.top += mChannelLayoutMargin;
-        drawingRect.right -= mChannelLayoutMargin;
-        drawingRect.bottom -= mChannelLayoutMargin;
+        const firstPos = getFirstVisibleChannelPosition();
+        const lastPos = getLastVisibleChannelPosition();
 
-        const channel = epgData.getChannel(currentChannelPosition);
+        //console.log("Channel: First: " + firstPos + " Last: " + lastPos);
+        //let transparentTop = firstPos + 3;
+        //let transparentBottom = lastPos - 3;
+        canvas.globalAlpha = 1.0;
+        for (let pos = firstPos; pos < lastPos; pos++) {
+            // if (pos <= transparentTop) {
+            //     canvas.globalAlpha += 0.25;
+            // } else if (pos >= transparentBottom) {
+            //     canvas.globalAlpha -= 0.25;
+            // } else {
+            //     canvas.globalAlpha = 1;
+            // }
+            drawChannelItem(canvas, pos);
+        }
+    };
+
+    const drawChannelItem = (canvas: CanvasRenderingContext2D, position: number) => {
+        const isSelectedChannel = position === channelPosition.current;
+        const channel = epgData.getChannel(position);
+        const drawingRect = new Rect();
+
+        // should not happen, but better check it
         if (!channel) return;
 
+        drawingRect.left = 0;
+        drawingRect.top = getTopFrom(position);
+        drawingRect.right = mChannelLayoutWidth;
+        drawingRect.bottom = drawingRect.top + mChannelLayoutHeight;
+        IS_DEBUG && CanvasUtils.drawDebugRect(canvas, drawingRect);
+
+        // highlight selected channel
+        if (isSelectedChannel) {
+            canvas.fillStyle = mChannelLayoutBackgroundFocus;
+            canvas.fillRect(drawingRect.left, drawingRect.top, drawingRect.width, drawingRect.height);
+        }
+
+        // channel number
+        CanvasUtils.writeText(canvas, channel.getChannelID().toString(), drawingRect.left + 70, drawingRect.middle, {
+            fontSize: mChannelLayoutNumberTextSize,
+            textAlign: 'right',
+            fillStyle: mChannelLayoutTextColor,
+            isBold: true
+        });
+
+        // channel line
+        const currentEvent = epgData.getEventAtTimestamp(position, EPGUtils.getNow());
+        const channelIconWidth = mChannelLayoutHeight * 1.3;
+        const channelNameWidth = mChannelLayoutWidth - channelIconWidth - 90;
+
+        const leftBeforeRecMark = drawingRect.left;
+        // recording mark
+        if (currentEvent && epgData.isRecording(currentEvent)) {
+            const radius = 10;
+            canvas.fillStyle = '#FF0000';
+            canvas.beginPath();
+            canvas.arc(drawingRect.left + 90 + radius, drawingRect.middle - radius, radius, 0, 2 * Math.PI);
+            canvas.fill();
+            drawingRect.left += 2 * radius + mChannelLayoutPadding;
+        }
+        // channel name
+        CanvasUtils.writeText(
+            canvas,
+            channel.getName(),
+            drawingRect.left + 90,
+            drawingRect.top + mChannelLayoutHeight * 0.33,
+            {
+                fontSize: mChannelLayoutTextSize,
+                fillStyle: mChannelLayoutTextColor,
+                isBold: true,
+                maxWidth: channelNameWidth
+            }
+        );
+        drawingRect.left = leftBeforeRecMark;
+
+        // channel event
+        if (currentEvent) {
+            // channel event progress bar
+            const channelEventProgressRect = new Rect();
+            channelEventProgressRect.left = drawingRect.left + 90;
+            channelEventProgressRect.right = channelEventProgressRect.left + 80;
+            channelEventProgressRect.top = drawingRect.top + mChannelLayoutHeight * 0.66;
+            channelEventProgressRect.bottom = channelEventProgressRect.top + mChannelLayoutEventTextSize * 0.5;
+            canvas.strokeStyle = mChannelLayoutTextColor;
+            canvas.strokeRect(
+                channelEventProgressRect.left,
+                channelEventProgressRect.top,
+                channelEventProgressRect.width,
+                channelEventProgressRect.height
+            );
+            canvas.fillStyle = isSelectedChannel ? mChannelLayoutTextColor : mChannelLayoutTitleTextColor;
+            canvas.fillRect(
+                channelEventProgressRect.left + 2,
+                channelEventProgressRect.top + 2,
+                (channelEventProgressRect.width - 4) * currentEvent.getDoneFactor(),
+                channelEventProgressRect.height - 4
+            );
+
+            // channel event text
+            const channelEventWidth = mChannelLayoutWidth - channelIconWidth - 90 - channelEventProgressRect.width;
+            CanvasUtils.writeText(
+                canvas,
+                currentEvent.getTitle(),
+                channelEventProgressRect.right + mChannelLayoutPadding,
+                channelEventProgressRect.middle,
+                {
+                    fontSize: mChannelLayoutEventTextSize,
+                    fillStyle: canvas.fillStyle,
+                    maxWidth: channelEventWidth
+                }
+            );
+        }
+
         // channel logo
-        drawingRect.left += 20;
-        drawingRect.top = 0;
-        drawingRect.right = drawingRect.left + drawingRect.height + 50;
-        canvas.textAlign = 'left';
         const imageURL = channel.getImageURL();
         const image = imageURL && imageCache.get(imageURL);
         if (image !== undefined) {
-            const imgRect = getDrawingRectForChannelImage(new Rect(drawingRect.left, drawingRect.top, drawingRect.right, drawingRect.bottom), image);
-            canvas.drawImage(image, imgRect.left, imgRect.top, imgRect.width, imgRect.height);
+            const channelImageRect = getDrawingRectForChannelImage(position, image);
+            canvas.drawImage(
+                image,
+                channelImageRect.left,
+                channelImageRect.top,
+                channelImageRect.width,
+                channelImageRect.height
+            );
+            IS_DEBUG && CanvasUtils.drawDebugRect(canvas, channelImageRect);
+        }
+    };
+
+    const getDrawingRectForChannelImage = (position: number, image: HTMLImageElement) => {
+        const drawingRect = new Rect();
+        drawingRect.right = mChannelLayoutWidth - mChannelLayoutMargin;
+        drawingRect.left = drawingRect.right - mChannelLayoutHeight * 1.3;
+        drawingRect.top = getTopFrom(position);
+        drawingRect.bottom = drawingRect.top + mChannelLayoutHeight;
+
+        const imageWidth = image.width;
+        const imageHeight = image.height;
+        const imageRatio = imageHeight / imageWidth;
+
+        const rectWidth = drawingRect.right - drawingRect.left;
+        const rectHeight = drawingRect.bottom - drawingRect.top;
+
+        // Keep aspect ratio.
+        if (imageWidth > imageHeight) {
+            const padding = (rectHeight - rectWidth * imageRatio) / 2;
+            drawingRect.top += padding;
+            drawingRect.bottom -= padding;
+        } else if (imageWidth <= imageHeight) {
+            const padding = (rectWidth - rectHeight / imageRatio) / 2;
+            drawingRect.left += padding;
+            drawingRect.right -= padding;
         }
 
-        // content area starts after logo
-        const contentLeft = drawingRect.right + 20;
-        drawingRect.left = contentLeft;
-        drawingRect.right = getWidth();
-        drawingRect.top = getHeight() / 2 - mChannelInfoTitleSize + mChannelInfoTitleSize / 2 + mChannelLayoutPadding;
+        return drawingRect;
+    };
 
-        let currentEvent, nextEvent;
-        for (const event of channel.getEvents()) {
-            if (event.isCurrent()) {
-                currentEvent = event;
-                continue;
-            }
-            if (currentEvent) {
-                nextEvent = event;
+    /**
+     * get first visible channel position
+     */
+    const getFirstVisibleChannelPosition = () => {
+        const y = scrollY.current;
+        let position = Math.floor(y / mChannelLayoutHeight);
+
+        if (position < 0) {
+            position = 0;
+        }
+        //console.log("First visible item: ", position);
+        return position;
+    };
+
+    const getLastVisibleChannelPosition = () => {
+        const y = scrollY.current;
+        const screenHeight = getHeight();
+        let position = Math.floor((y + screenHeight) / mChannelLayoutHeight);
+
+        const channelCount = epgData.getChannelCount();
+        // this will fade the bottom channel in while scrolling
+        if (position < channelCount) {
+            position += 1;
+        }
+        // this is the max channel available
+        if (position > channelCount) {
+            position = channelCount;
+        }
+        //console.log("Last visible item: ", position);
+        return position;
+    };
+
+    const recalculateAndRedraw = (withAnimation: boolean) => {
+        if (epgData !== null && epgData.hasData()) {
+            // calculateMaxVerticalScroll();
+            scrollToChannelPosition(channelPosition.current, withAnimation);
+        }
+    };
+
+    const getWidth = () => {
+        return mChannelLayoutWidth;
+    };
+
+    const getHeight = () => {
+        return window.innerHeight;
+    };
+
+    const focus = () => {
+        listWrapper.current?.focus();
+    };
+
+    const handleKeyPress = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        const keyCode = event.keyCode;
+
+        switch (keyCode) {
+            case 33: // programm up
+            case 38: // arrow up
+                event.stopPropagation();
+                scrollUp();
+                break;
+            case 34: // programm down
+            case 40: // arrow down
+                event.stopPropagation();
+                scrollDown();
+                break;
+            case 67: // keyboard 'c'
+            case 461: // back button
+                event.stopPropagation();
+                props.unmount();
+                break;
+            case 13: // ok button -> switch to focused channel
+                event.stopPropagation();
+                setCurrentChannelPosition(channelPosition.current);
+                props.unmount();
+                break;
+            case 82: // keyboard 'r'
+            case 403: {
+                // red button trigger recording
+                event.stopPropagation();
+                toggleRecording();
                 break;
             }
+            case 39: // right arrow
+                event.stopPropagation();
+                if (state === State.DETAILS) {
+                    // switch to next event details
+                    focusedEventOffset.current += 1;
+                    setDetailsData();
+                } else {
+                    // show channelListDetails
+                    setState(State.DETAILS);
+                }
+                break;
+            case 37: // left arrow
+                event.stopPropagation();
+                if (state === State.DETAILS && focusedEventOffset.current > 0) {
+                    // switch to previous event details
+                    focusedEventOffset.current -= 1;
+                    setDetailsData();
+                } else {
+                    // hide channelListDetails
+                    setState(State.NORMAL);
+                }
+                break;
+            default:
+                console.log('ChannelList-keyPressed:', keyCode);
         }
 
-        if (currentEvent !== undefined) {
-            // --- CU EPG: comportament original ---
-            const left = drawingRect.left;
-            drawingRect.right -= mChannelInfoTimeBoxWidth;
+        // pass unhandled events to parent
+        if (!event.isPropagationStopped) return event;
+    };
 
-            if (epgData.isRecording(currentEvent)) {
-                const radius = 10;
-                canvas.fillStyle = '#FF0000';
-                canvas.beginPath();
-                canvas.arc(drawingRect.left + radius, drawingRect.top - radius, radius, 0, 2 * Math.PI);
-                canvas.fill();
-                drawingRect.left += 2 * radius + 2 * mChannelLayoutPadding;
-            }
+    const toggleRecording = () => {
+        const epgEvent =
+            detailsState?.focusedEvent ||
+            epgData
+                .getChannel(channelPosition.current)
+                ?.getEvents()
+                .find((e) => e.isCurrent());
+        if (epgEvent) {
+            // call passed toggle recording function
+            props.toggleRecording(epgEvent, () => {
+                updateCanvas();
+                // trigger rerender
+                setDetailsState({ ...detailsState });
+            });
+        }
+    };
 
-            canvas.font = 'bold ' + mChannelInfoTitleSize + 'px Moonstone';
-            canvas.fillStyle = mChannelLayoutTextColor;
-            canvas.fillText(
-                CanvasUtils.getShortenedText(canvas, currentEvent.getTitle(), drawingRect.width),
-                drawingRect.left,
-                drawingRect.top
-            );
+    const handleScrollWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+        event.deltaY < 0 ? scrollUp() : scrollDown();
+        focus();
+    };
 
-            drawingRect.right += mChannelInfoTimeBoxWidth;
-            drawingRect.left = drawingRect.right - mChannelLayoutPadding - 20;
-            canvas.textAlign = 'right';
-            canvas.font = 'bold ' + mChannelInfoTitleSize + 'px Moonstone';
-            canvas.fillStyle = mChannelLayoutTextColor;
-            canvas.fillText(
-                EPGUtils.toTimeFrameString(currentEvent.getStart(), currentEvent.getEnd(), locale),
-                drawingRect.left,
-                drawingRect.top
-            );
-            canvas.textAlign = 'left';
+    const handleClick = () => {
+        setCurrentChannelPosition(channelPosition.current);
+        props.unmount();
+    };
 
-            canvas.font = mChannelInfoTitleSize - 8 + 'px Moonstone';
-            drawingRect.top += mChannelInfoTitleSize - 5 + mChannelLayoutPadding;
-            if (currentEvent.getSubTitle() !== undefined) {
-                drawingRect.left = left;
-                drawingRect.right -= mChannelInfoTimeBoxWidth;
-                canvas.fillStyle = mChannelLayoutTitleTextColor;
-                canvas.fillText(
-                    CanvasUtils.getShortenedText(canvas, currentEvent.getSubTitle(), drawingRect.width),
-                    drawingRect.left,
-                    drawingRect.top
-                );
-                drawingRect.right += mChannelInfoTimeBoxWidth;
-            }
-
-            const runningTime = EPGUtils.toDuration(currentEvent.getStart(), EPGUtils.getNow());
-            const remainingTime = Math.ceil((currentEvent.getEnd() - EPGUtils.getNow()) / 1000 / 60);
-            drawingRect.left = drawingRect.right - mChannelLayoutPadding - 20;
-            canvas.textAlign = 'right';
-            canvas.font = mChannelInfoTitleSize - 8 + 'px Moonstone';
-            canvas.fillStyle = mChannelLayoutTitleTextColor;
-            canvas.fillText(runningTime + ' (+' + remainingTime + ')', drawingRect.left, drawingRect.top);
-
-            drawingRect.top += mChannelInfoTitleSize - 14 + mChannelLayoutPadding;
-            const nextEventTextOptions: WriteTextOptions = {
-                textAlign: 'right',
-                textBaseline: 'alphabetic',
-                fontSize: mChannelInfoTitleSize - 18
-            };
-
-            if (nextEvent !== undefined) {
-                canvas.font = mChannelInfoTitleSize - 18 + 'px Moonstone';
-                const titleMetrics = canvas.measureText(nextEvent.getTitle());
-                const titleLength =
-                    titleMetrics.width > mChannelNextTitleMaxLength ? mChannelNextTitleMaxLength : titleMetrics.width;
-                canvas.fillStyle = mChannelLayoutTextColor;
-                CanvasUtils.writeText(canvas, nextEvent.getTitle(), drawingRect.left, drawingRect.top, {
-                    ...nextEventTextOptions,
-                    maxWidth: titleLength < mChannelNextTitleMaxLength ? undefined : mChannelNextTitleMaxLength
-                });
-                drawingRect.left -= titleLength + mChannelLayoutPadding;
-                CanvasUtils.writeText(
-                    canvas,
-                    EPGUtils.toTimeFrameString(nextEvent.getStart(), nextEvent.getEnd(), locale),
-                    drawingRect.left,
-                    drawingRect.top,
-                    { ...nextEventTextOptions, fillStyle: 'rgb(65, 182, 230)' }
-                );
-            }
-
-            // progress bar
-            const channelEventProgressRect = new Rect(0, 0, 6, getWidth());
-            const grdProg = canvas.createLinearGradient(0, 0, getWidth(), 0);
-            grdProg.addColorStop(0, 'rgba(80, 80, 80, 0.75)');
-            grdProg.addColorStop(0.5, 'rgba(200, 200, 200, 0.75)');
-            grdProg.addColorStop(1, 'rgba(80, 80, 80, 0.75)');
-            const grdProg2 = canvas.createLinearGradient(0, 0, getWidth(), 0);
-            grdProg2.addColorStop(0, 'rgba(19, 126, 169, 0.75)');
-            grdProg2.addColorStop(0.5, 'rgba(65, 182, 230, 0.75)');
-            grdProg2.addColorStop(1, 'rgba(19, 126, 169, 0.75)');
-            canvas.fillStyle = grdProg;
-            canvas.fillRect(channelEventProgressRect.left, channelEventProgressRect.top, channelEventProgressRect.width, channelEventProgressRect.height);
-            canvas.fillStyle = grdProg2;
-            canvas.fillRect(channelEventProgressRect.left, channelEventProgressRect.top, channelEventProgressRect.width * currentEvent.getDoneFactor(), channelEventProgressRect.height);
-
-            // color keys — cu EPG
-            drawColorKeys(canvas, left, drawingRect.top);
-
+    const scrollUp = () => {
+        // if we reached 0 we scroll to end of list
+        if (channelPosition.current === 0) {
+            setChannelPosition(epgData.getChannelCount() - 1);
         } else {
-            // --- FĂRĂ EPG: afișăm numele canalului + legenda butoanelor ---
-            canvas.font = 'bold ' + mChannelInfoTitleSize + 'px Moonstone';
-            canvas.fillStyle = mChannelLayoutTextColor;
-            canvas.textAlign = 'left';
-            canvas.fillText(
-                channel.getName(),
-                drawingRect.left,
-                drawingRect.top
-            );
-
-            // color keys — fără EPG (aceeași poziție, un rând mai jos)
-            drawColorKeys(canvas, drawingRect.left, drawingRect.top + mChannelInfoTitleSize + mChannelLayoutPadding * 2);
+            // channel down
+            setChannelPosition(channelPosition.current - 1);
         }
     };
 
-    // ─── helper extras: desenează legenda roșu/verde/galben/albastru ──────────
-    const drawColorKeys = (canvas: CanvasRenderingContext2D, left: number, top: number) => {
-        top -= mChannelInfoKeyDescSize / 2;
-        canvas.font = mChannelInfoKeyDescSize + 'px Moonstone';
-        canvas.textAlign = 'left';
-
-        let x = left;
-
-        // roșu — Rec
-        canvas.fillStyle = '#EF3343';
-        canvas.fillRect(x, top, mChannelInfoKeyRectWidth, 10);
-        x += mChannelInfoKeyRectWidth + mChannelLayoutPadding;
-        const recMetrics = canvas.measureText('Rec');
-        CanvasUtils.writeText(canvas, 'Rec', x, top + 5);
-        x += recMetrics.width + mChannelLayoutPadding + mChannelInfoKeyPadding;
-
-        // verde — Menu
-        canvas.fillStyle = '#46BB3E';
-        canvas.fillRect(x, top, mChannelInfoKeyRectWidth, 10);
-        x += mChannelInfoKeyRectWidth + mChannelLayoutPadding;
-        const menuMetrics = canvas.measureText('Menu');
-        CanvasUtils.writeText(canvas, 'Menu', x, top + 5);
-        x += menuMetrics.width + mChannelLayoutPadding + mChannelInfoKeyPadding;
-
-        // galben — Audio
-        canvas.fillStyle = '#FBC821';
-        canvas.fillRect(x, top, mChannelInfoKeyRectWidth, 10);
-        x += mChannelInfoKeyRectWidth + mChannelLayoutPadding;
-        const audioMetrics = canvas.measureText('Audio');
-        CanvasUtils.writeText(canvas, 'Audio', x, top + 5);
-        x += audioMetrics.width + mChannelLayoutPadding + mChannelInfoKeyPadding;
-
-        // albastru — EPG
-        canvas.fillStyle = '#4065B8';
-        canvas.fillRect(x, top, mChannelInfoKeyRectWidth, 10);
-        x += mChannelInfoKeyRectWidth + mChannelLayoutPadding;
-        CanvasUtils.writeText(canvas, 'EPG', x, top + 5);
+    const scrollDown = () => {
+        // when channel position increased channelcount we scroll to beginning
+        if (channelPosition.current === epgData.getChannelCount() - 1) {
+            setChannelPosition(0);
+        } else {
+            // channel up
+            setChannelPosition(channelPosition.current + 1);
+        }
     };
+
+    const updateCanvas = () => {
+        if (canvas.current) {
+            const ctx = canvas.current.getContext('2d');
+            // clear
+            ctx && ctx.clearRect(0, 0, getWidth(), getHeight());
+
+            // draw child elements
+            ctx && onDraw(ctx);
+        }
+    };
+
+    const onDraw = (canvas: CanvasRenderingContext2D) => {
+        if (epgData && epgData.hasData()) {
+            drawChannelListItems(canvas);
+        }
+    };
+
+    const setChannelPosition = (channelPos: number) => {
+        channelPosition.current = channelPos;
+        if (state === State.DETAILS) {
+            setDetailsData();
+        }
+        scrollToChannelPosition(channelPos, isAnimationsEnabled);
+    };
+
+    const setDetailsData = () => {
+        const channel = epgData.getChannel(channelPosition.current);
+        // in case channel changed
+        if (channel?.getChannelID() !== detailsState?.focusedChannel?.getChannelID()) {
+            focusedEventOffset.current = 0;
+        }
+        // get current event
+        const currentEvent = epgData.getEventAtTimestamp(channelPosition.current, EPGUtils.getNow()) || undefined;
+        let newFocusedEvent;
+        if (currentEvent) {
+            // get next event position with offset
+            const eventPos =
+                epgData.getEventPosition(channelPosition.current, currentEvent) + focusedEventOffset.current;
+            const nextEventsArray: EPGEvent[] = [];
+            for (let i = eventPos; i < eventPos + 5; i++) {
+                const nextEvent = epgData.getEvent(channelPosition.current, i + 1);
+                nextEvent && nextEventsArray.push(nextEvent);
+            }
+            nextEvents.current = nextEventsArray;
+            // get same
+
+            // set event with offset
+            newFocusedEvent = epgData.getEvent(channelPosition.current, eventPos);
+        } else {
+            nextEvents.current = [];
+            nextSameEvents.current = [];
+        }
+
+        // trigger rerender
+        setDetailsState({
+            focusedEvent: newFocusedEvent || undefined,
+            focusedChannel: channel || undefined
+        });
+    };
+
+    useEffect(() => {
+        recalculateAndRedraw(false);
+        focus();
+
+        return () => {
+            // stop animation when unmounting
+            cancelAnimationFrame(scrollAnimationId.current);
+        };
+    }, []);
+
+    useLayoutEffect(() => {
+        if (state === State.DETAILS) {
+            setDetailsData();
+        }
+    }, [state]);
+
+    return (
+        <div
+            id="channellist-wrapper"
+            ref={listWrapper}
+            tabIndex={-1}
+            onKeyDown={handleKeyPress}
+            onWheel={handleScrollWheel}
+            onClick={handleClick}
+            className="channelList"
+        >
+            <canvas ref={canvas} width={getWidth()} height={getHeight()} style={{ display: 'block' }} />
+
+            {state === State.DETAILS && (
+                <ChannelListDetails
+                    isRecording={(event: EPGEvent) => {
+                        return epgData.isRecording(event);
+                    }}
+                    epgChannel={detailsState?.focusedChannel}
+                    currentEvent={detailsState?.focusedEvent}
+                    nextEvents={nextEvents.current}
+                    nextSameEvents={nextSameEvents.current}
+                />
+            )}
+        </div>
+    );
+};
+
+export default ChannelList;
