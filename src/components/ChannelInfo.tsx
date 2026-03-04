@@ -45,7 +45,7 @@ const ChannelInfo = (props: { unmount: () => void }) => {
 
 const drawChannelInfo = (canvas: CanvasRenderingContext2D) => {
         // Background
-        let drawingRect = new Rect();
+        const drawingRect = new Rect();
         drawingRect.left = 0;
         drawingRect.top = 0;
         drawingRect.right = getWidth();
