@@ -33,4 +33,5 @@ export default class WebOSService {
         const networkInfo = await this.lunaServiceAdapter.getNetworkInfo();
         return networkInfo;
     }
+	
 }

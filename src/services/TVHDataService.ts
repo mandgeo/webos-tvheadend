@@ -549,4 +549,5 @@ export default class TVHDataService {
                 console.log('Failed to retrieve epg data: ', JSON.stringify(error));
             });
     }
+
 }

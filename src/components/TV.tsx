@@ -43,6 +43,10 @@ const TV = () => {
     const [channelNumberText, setChannelNumberText] = useState('');
 
     const focus = () => tvWrapper.current?.focus();
+	
+	//temp
+	const [debugTracks, setDebugTracks] = useState('');
+
 
     const handleKeyPress = (event: React.KeyboardEvent<HTMLDivElement>) => {
         // in case we are in menu state we don't handle any keypress
@@ -214,10 +218,17 @@ const TV = () => {
     const handleLoadedMetaData = () => {
         const videoElement = getMediaElement();
         if (!videoElement) return;
+		
 
         // restore selected audio channel from storage
         const audioTracks = videoElement.audioTracks;
         const textTracks = videoElement.textTracks;
+		
+		const audioCount = audioTracks?.length || 0;
+		const textCount = textTracks?.length || 0;
+		setDebugTracks(`Audio: ${audioCount} | Text: ${textCount}`);
+
+		
         const currentChannel = getCurrentChannel();
         if (!currentChannel) return;
         const index = StorageHelper.getLastAudioTrackIndex(currentChannel.getName());
@@ -231,6 +242,10 @@ const TV = () => {
 
         setAudioTracks(audioTracks);
         setTextTracks(textTracks);
+		
+		//tvhDataService?.getSubtitleList()
+		//	.then(res => console.log('Subtitles:', JSON.stringify(res)))
+		//	.catch(err => console.log('Subtitle error:', err));
     };
 
     const setAudioTracks = (audioTracks: AudioTrackList | undefined) => {
@@ -267,6 +282,16 @@ const TV = () => {
 
         // Convert the created object to JSON string and encode it.
         //const mediaOption = encodeURI(JSON.stringify(options));
+
+		//const options = {
+		//	mediaTransportType: 'URI',
+		//	adaptiveStreaming: {
+		//		seamlessPlay: true
+		//	}
+		//};
+		//const mediaOption = encodeURI(JSON.stringify(options));
+		//source.setAttribute('src', dataUrl.toString());
+		//source.setAttribute('type', 'video/mp2t;mediaOption=' + mediaOption);
 
         // Add new source element
         const source = document.createElement('source');
@@ -392,6 +417,15 @@ const TV = () => {
             onClick={handleClick}
             className={isVideoPlaying ? 'tv playing' : 'tv loading'}
         >
+		
+		    {/* temp */}
+			{debugTracks !== '' && (
+				<div style={{position:'fixed', top:10, right:10, background:'rgba(0,0,0,0.8)', color:'white', padding:'10px', fontSize:'24px', zIndex:9999}}>
+					{debugTracks}
+				</div>
+			)}
+			
+			
             {channelNumberText !== '' && (
                 <ChannelHeader channelNumberText={channelNumberText} unmount={() => setChannelNumberText('')} />
             )}
@@ -429,15 +463,6 @@ const TV = () => {
                     unmount={() => setState(State.CHANNEL_INFO)}
                 />
             )}
-
-            <video
-                id="myVideo"
-                ref={video}
-                width={getWidth()}
-                height={getHeight()}
-                preload="none"
-                onLoadedMetadata={handleLoadedMetaData}
-            ></video>
         </div>
     );
 };

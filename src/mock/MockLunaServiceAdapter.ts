@@ -41,4 +41,5 @@ export default class MockLunaServiceAdapter implements LunaServiceInterface {
             isInternetConnectionAvailable: true
         } as ConnectionMgrResponse;
     }
+	
 }

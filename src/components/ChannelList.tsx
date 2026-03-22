@@ -33,6 +33,9 @@ const ChannelList = (props: {
     const scrollAnimationId = useRef(0);
     const scrollY = useRef(0);
     const channelPosition = useRef(currentChannelPosition);
+	
+	const isMouseActive = useRef(false);
+	const lastMouseY = useRef(-1);
 
     const focusedEventOffset = useRef(0);
     const nextEvents = useRef<EPGEvent[]>([]);
@@ -176,7 +179,7 @@ const ChannelList = (props: {
         IS_DEBUG && CanvasUtils.drawDebugRect(canvas, drawingRect);
 
         // highlight selected channel
-        if (isSelectedChannel) {
+        if (isSelectedChannel && isMouseActive.current) {
             canvas.fillStyle = mChannelLayoutBackgroundFocus;
             canvas.fillRect(drawingRect.left, drawingRect.top, drawingRect.width, drawingRect.height);
         }
@@ -431,37 +434,47 @@ const ChannelList = (props: {
     };
 
     const handleScrollWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+        // dezactivează highlight-ul mouse-ului în timp ce se scrollează
+        isMouseActive.current = false;
+
         event.deltaY < 0 ? scrollUp() : scrollDown();
         focus();
     };
 
     const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
-        // Calculează poziția canalului pe baza coordonatei Y a cursorului
-        // față de elementul canvas (nu față de pagină)
         const canvasEl = canvas.current;
         if (!canvasEl) return;
 
+        // ignoră mișcări mai mici de 10px
+        if (Math.abs(event.clientY - lastMouseY.current) < 10) return;
+        lastMouseY.current = event.clientY;
+
         const rect = canvasEl.getBoundingClientRect();
         const relativeY = event.clientY - rect.top;
-
-        // Determină ce canal e sub cursor (ținând cont de scroll)
         const hoveredPosition = Math.floor((relativeY + scrollY.current) / mChannelLayoutHeight);
 
-        // Verifică că e în limitele listei
-        if (
-            hoveredPosition >= 0 &&
-            hoveredPosition < epgData.getChannelCount() &&
-            hoveredPosition !== channelPosition.current
-        ) {
-            setChannelPosition(hoveredPosition);
-            focus(); // asigură că div-ul primește keydown după hover
+        if (hoveredPosition < 0 || hoveredPosition >= epgData.getChannelCount()) return;
+
+        isMouseActive.current = true;
+
+        if (hoveredPosition !== channelPosition.current) {
+            channelPosition.current = hoveredPosition;
+            if (state === State.DETAILS) {
+                setDetailsData();
+            }
+            updateCanvas();
+            focus();
+        } else {
+            updateCanvas();
         }
     };
 
     const handleMouseClick = (event: React.MouseEvent<HTMLDivElement>) => {
-        // Click cu Magic Remote = selectează canalul hover-uit
-        setCurrentChannelPosition(channelPosition.current);
-        props.unmount();
+        // selectează canalul doar dacă mouse-ul e activ (are highlight)
+        if (isMouseActive.current) {
+            setCurrentChannelPosition(channelPosition.current);
+            props.unmount();
+        }
     };
     
     const handleClick = () => {

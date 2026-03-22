@@ -66,4 +66,29 @@ export default class LunaServiceAdapter implements LunaServiceInterface {
             });
         });
     }
+	
+    //getSubtitleList(): Promise<any> {
+    //    return new Promise<any>(function (resolve, reject) {
+    //        global.webOS.service.request('luna://com.webos.service.tv.subtitle', {
+    //            method: 'getSubtitleList',
+    //            parameters: {},
+    //            onSuccess: (res: any) => resolve(res),
+    //            onFailure: (res: any) => reject(res)
+    //        });
+    //    });
+    //}
+
+    //setSubtitle(index: number, enable: boolean): Promise<any> {
+    //    return new Promise<any>(function (resolve, reject) {
+    //        global.webOS.service.request('luna://com.webos.service.tv.subtitle', {
+    //            method: 'setSubtitle',
+    //            parameters: {
+    //                index: index,
+    //                enable: enable
+    //            },
+    //            onSuccess: (res: any) => resolve(res),
+    //            onFailure: (res: any) => reject(res)
+    //        });
+    //    });
+    //}	
 }

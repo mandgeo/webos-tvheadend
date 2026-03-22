@@ -17,22 +17,18 @@ const ChannelSettings = (props: {
     const selectedTextTrack = useRef(0);
     const timeoutReference = useRef<NodeJS.Timeout | null>(null);
 
-    const handleTextChange = (event: { value: number }) => {
+
+	const handleTextChange = (event: { value: number }) => {
         updateAutomaticUnmount();
 
-        // enable new track
         if (props.textTracks) {
             for (let i = 0; i < props.textTracks.length; i++) {
-                // const textTrack = props.textTracks[i];
-                // textTrack.enabled = (event.value === i);
+                const textTrack = props.textTracks[i];
+                // -1 = dezactivat (primul element din picker e "Off")
+                textTrack.mode = event.value - 1 === i ? 'showing' : 'disabled';
             }
         }
         setSelectedTextTrack(event.value);
-
-        // TODO: save selected text track index for channel
-        // localStorage.setItem(props.channelName, event.value);
-
-        // do not pass this event further
         return false;
     };
 
@@ -104,13 +100,19 @@ const ChannelSettings = (props: {
             }
         }
 
-        if (props.textTracks) {
-            for (let i = 0; i < props.textTracks.length; i++) {
-                const textTrack = props.textTracks[i];
-                setTextTracksDisplay((textTracksDisplay) => [...textTracksDisplay, textTrack.language]);
-                // textTrack.enabled && setSelectedTextTrack(i);
-            }
-        }
+	   if (props.textTracks) {
+			// primul element e "Off" — permite dezactivarea subtitrărilor
+			setTextTracksDisplay(['Off']);
+			for (let i = 0; i < props.textTracks.length; i++) {
+				const textTrack = props.textTracks[i];
+				const label = textTrack.label || textTrack.language || `Track ${i + 1}`;
+				setTextTracksDisplay((prev) => [...prev, label]);
+				// dacă pista e activă, selectează-o în picker (offset +1 pentru "Off")
+				if (textTrack.mode === 'showing') {
+					setSelectedTextTrack(i + 1);
+				}
+			}
+		}
 
         // automatic unmount
         updateAutomaticUnmount();

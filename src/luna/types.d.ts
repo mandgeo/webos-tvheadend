@@ -67,6 +67,8 @@ interface LunaServiceInterface {
     getLocaleInfo(): Promise<LocaleInfoSuccessResponse>;
     getDeviceInfo(): Promise<DeviceInfoSuccessResponse>;
     getNetworkInfo(): Promise<ConnectionMgrResponse>;
+	//getSubtitleList(): Promise<any>;
+    //setSubtitle(index: number, enable: boolean): Promise<any>;
 }
 
 interface FileServiceInterface {
