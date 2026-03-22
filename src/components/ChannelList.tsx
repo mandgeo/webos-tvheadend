@@ -434,10 +434,23 @@ const ChannelList = (props: {
     };
 
     const handleScrollWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+<<<<<<< HEAD
         // dezactivează highlight-ul mouse-ului în timp ce se scrollează
         isMouseActive.current = false;
 
         event.deltaY < 0 ? scrollUp() : scrollDown();
+=======
+        const SCROLL_STEP = 10;
+        if (event.deltaY < 0) {
+            // rotița sus — mergi cu 10 canale în sus
+            const newPos = Math.max(0, channelPosition.current - SCROLL_STEP);
+            setChannelPosition(newPos);
+        } else {
+            // rotița jos — mergi cu 10 canale în jos
+            const newPos = Math.min(epgData.getChannelCount() - 1, channelPosition.current + SCROLL_STEP);
+            setChannelPosition(newPos);
+        }
+>>>>>>> 728f02d02cf5927a22a0f10ed017f7197d111c45
         focus();
     };
 
@@ -451,6 +464,7 @@ const ChannelList = (props: {
 
         const rect = canvasEl.getBoundingClientRect();
         const relativeY = event.clientY - rect.top;
+<<<<<<< HEAD
         const hoveredPosition = Math.floor((relativeY + scrollY.current) / mChannelLayoutHeight);
 
         if (hoveredPosition < 0 || hoveredPosition >= epgData.getChannelCount()) return;
@@ -458,14 +472,30 @@ const ChannelList = (props: {
         isMouseActive.current = true;
 
         if (hoveredPosition !== channelPosition.current) {
+=======
+
+        // Calculează canalul de sub cursor folosind scroll-ul CURENT al listei
+        // dar NU modifică scrollY — lista rămâne pe loc
+        const hoveredPosition = Math.floor((relativeY + scrollY.current) / mChannelLayoutHeight);
+
+        if (
+            hoveredPosition >= 0 &&
+            hoveredPosition < epgData.getChannelCount() &&
+            hoveredPosition !== channelPosition.current
+        ) {
+            // Actualizează doar highlight-ul, fără să scrolleze lista
+>>>>>>> 728f02d02cf5927a22a0f10ed017f7197d111c45
             channelPosition.current = hoveredPosition;
             if (state === State.DETAILS) {
                 setDetailsData();
             }
             updateCanvas();
             focus();
+<<<<<<< HEAD
         } else {
             updateCanvas();
+=======
+>>>>>>> 728f02d02cf5927a22a0f10ed017f7197d111c45
         }
     };
 
